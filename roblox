@@ -1,3 +1,287 @@
+print("Close Script = F8")
+print("Switch Mode (Team/Solo) = F1")
+print("Teleport = F")
+
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+local RunService = game:GetService("RunService")
+local Camera = workspace.CurrentCamera
+
+local player = Players.LocalPlayer
+local running = true
+local currentMode = "solo"
+local inputConnection = nil
+local aimbotActive = false
+local f2Enabled = false -- F2 Aimbot toggle
+local targetPlayer = nil -- Store the current target player
+local rightClickPressed = false -- Track if right click is pressed
+
+-- Find the closest valid player
+local function getClosestPlayer(ignoreTeam, minDistance)
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+
+    local myPos = myChar.HumanoidRootPart.Position
+    local closestPlayer = nil
+    local minDist = math.huge
+
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local humanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local isEnemy = true
+                if not ignoreTeam and player.Team and otherPlayer.Team then
+                    isEnemy = otherPlayer.Team ~= player.Team
+                end
+
+                if ignoreTeam or isEnemy then
+                    local dist = (myPos - otherPlayer.Character.HumanoidRootPart.Position).Magnitude
+                    if dist >= minDistance and dist < minDist then
+                        minDist = dist
+                        closestPlayer = otherPlayer
+                    end
+                end
+            end
+        end
+    end
+
+    return closestPlayer
+end
+
+-- Find the closest enemy's head within a range
+local function getClosestEnemyHeadInRange(range)
+    local myChar = player.Character
+    if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
+
+    local myPos = myChar.HumanoidRootPart.Position
+    local closestHead = nil
+    local closestDist = math.huge
+
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Head") then
+            local humanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local head = otherPlayer.Character.Head
+                local dist = (myPos - head.Position).Magnitude
+
+                local isEnemy = true
+                if player.Team and otherPlayer.Team then
+                    isEnemy = player.Team ~= otherPlayer.Team
+                end
+
+                if isEnemy and dist <= range and dist < closestDist then
+                    closestHead = head
+                    closestDist = dist
+                end
+            end
+        end
+    end
+
+    return closestHead
+end
+
+-- New: Find player whose head is closest to screen center
+local function getClosestEnemyToScreenCenter(maxDistance)
+    local closestHead = nil
+    local smallestDistance = math.huge
+    local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+
+    for _, otherPlayer in pairs(Players:GetPlayers()) do
+        if otherPlayer ~= player and otherPlayer.Character and otherPlayer.Character:FindFirstChild("Head") then
+            local humanoid = otherPlayer.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                local isEnemy = true
+                if player.Team and otherPlayer.Team then
+                    isEnemy = player.Team ~= otherPlayer.Team
+                end
+
+                if isEnemy then
+                    local head = otherPlayer.Character.Head
+                    local distanceToPlayer = (player.Character.HumanoidRootPart.Position - head.Position).Magnitude
+                    if distanceToPlayer <= maxDistance then
+                        local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
+                        if onScreen then
+                            local distFromCenter = (Vector2.new(screenPos.X, screenPos.Y) - screenCenter).Magnitude
+                            if distFromCenter < smallestDistance then
+                                smallestDistance = distFromCenter
+                                closestHead = head
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    return closestHead
+end
+
+-- Frame update for aiming
+RunService.RenderStepped:Connect(function()
+    if not running then return end
+
+    if aimbotActive then
+        local head = nil
+
+        if f2Enabled and rightClickPressed then
+            -- Use screen center-based aiming for F2 mode
+            head = getClosestEnemyToScreenCenter(500)
+        else
+            -- Use distance-based aiming for 1-second mode
+            head = getClosestEnemyHeadInRange(7)
+        end
+
+        if head then
+            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
+        end
+    end
+end)
+
+-- New: Set target player when right-clicking
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if not rightClickPressed then
+            -- Set target player only when right-click is pressed
+            if f2Enabled then
+                targetPlayer = getClosestPlayer(true, 0)
+                print("Target player set: " .. (targetPlayer and targetPlayer.Name or "None"))
+            end
+            rightClickPressed = true
+            aimbotActive = true
+        end
+    end
+end)
+
+-- Right click up = deactivate aim, but keep the target fixed
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton2 then
+        if f2Enabled then
+            -- Keep the target player fixed even when the right-click is released
+            rightClickPressed = false
+        end
+    end
+end)
+
+-- Enable auto-aim for 1 second (used after teleport)
+local function enableAimbotForOneSecond()
+    aimbotActive = true
+    task.delay(1, function()
+        if not f2Enabled then
+            aimbotActive = false
+        end
+    end)
+end
+
+-- F2 toggles right-click aim mode
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+
+    if input.KeyCode == Enum.KeyCode.F2 then
+        f2Enabled = not f2Enabled
+        print("F2 Aimbot is now", f2Enabled and "enabled" or "disabled")
+        StarterGui:SetCore("SendNotification", {
+            Title = "Aimbot (F2)";
+            Text = f2Enabled and "Enabled (Hold Right Click)" or "Disabled";
+            Duration = 4
+        })
+    end
+end)
+
+-- Activate mode (solo/team)
+local function activateMode(mode)
+    deactivateCurrentMode()
+
+    inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
+        if processed then return end
+
+        -- Teleport to target
+        if input.KeyCode == Enum.KeyCode.F and running then
+            local target = nil
+            if mode == "team" then
+                target = getClosestPlayer(false, 30)
+            else
+                target = getClosestPlayer(true, 0)
+            end
+
+            if not target then return end
+
+            local myChar = player.Character
+            if target and target.Character and myChar then
+                local targetHRP = target.Character:FindFirstChild("HumanoidRootPart")
+                local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+
+                if targetHRP and myHRP then
+                    local backOffset = targetHRP.CFrame.LookVector * -1
+                    local newPos = targetHRP.Position + backOffset
+                    myHRP.CFrame = CFrame.new(newPos, targetHRP.Position)
+                    print("Teleported to:", target.Name)
+                    enableAimbotForOneSecond()
+                end
+            end
+        end
+
+        -- Stop with F3
+        if input.KeyCode == Enum.KeyCode.F3 then
+            running = false
+            print("Stopped (F3).")
+        end
+
+        -- Close script with F8
+        if input.KeyCode == Enum.KeyCode.F8 then
+            running = false
+            deactivateCurrentMode()
+            print("Script closed (F8).")
+            StarterGui:SetCore("SendNotification", {
+                Title = "Script Closed";
+                Text = "Script closed";
+                Duration = 5
+            })
+            if inputConnection then
+                inputConnection:Disconnect()
+            end
+        end
+    end)
+
+    print("Mode activated:", mode)
+    StarterGui:SetCore("SendNotification", {
+        Title = "Mode switched";
+        Text = "Mode: " .. (mode == "team" and "Team mode" or "Solo mode");
+        Duration = 5
+    })
+end
+
+function deactivateCurrentMode()
+    if inputConnection then
+        inputConnection:Disconnect()
+        inputConnection = nil
+    end
+end
+
+-- Start in solo mode
+activateMode(currentMode)
+
+-- Switch modes with F1
+UserInputService.InputBegan:Connect(function(input, processed)
+    if processed then return end
+    if input.KeyCode == Enum.KeyCode.F1 then
+        currentMode = (currentMode == "solo") and "team" or "solo"
+        activateMode(currentMode)
+    end
+end)
+
+-- Welcome message
+StarterGui:SetCore("SendNotification", {
+    Title = "Keybinds";
+    Text = "Open console (F9) to view keybinds\n\nHello, " .. player.DisplayName;
+    Icon = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=180&h=180";
+    Duration = 10
+})
+
+-- External script loader
+loadstring(game:HttpGet('https://raw.githubusercontent.com/Lucasfin000/SpaceHub/main/UESP'))()
+
 local UserInputService = game:GetService("UserInputService")
 
 -- GUI Setup
