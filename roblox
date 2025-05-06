@@ -1,6 +1,7 @@
 print("Close Script = F8")
 print("Switch Mode (Team/Solo) = F1")
 print("Teleport = F")
+print("Toggle Aimbot = T")
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -13,9 +14,7 @@ local running = true
 local currentMode = "solo"
 local inputConnection = nil
 local aimbotActive = false
-local f2Enabled = false -- F2 Aimbot toggle
-local targetPlayer = nil -- Store the current target player
-local rightClickPressed = false -- Track if right click is pressed
+local targetPlayer = nil
 
 -- Find the closest valid player
 local function getClosestPlayer(ignoreTeam, minDistance)
@@ -81,7 +80,7 @@ local function getClosestEnemyHeadInRange(range)
     return closestHead
 end
 
--- New: Find player whose head is closest to screen center
+-- Find player whose head is closest to screen center
 local function getClosestEnemyToScreenCenter(maxDistance)
     local closestHead = nil
     local smallestDistance = math.huge
@@ -117,49 +116,41 @@ local function getClosestEnemyToScreenCenter(maxDistance)
     return closestHead
 end
 
--- Frame update for aiming
+-- Aimbot aiming loop
 RunService.RenderStepped:Connect(function()
     if not running then return end
 
-    if aimbotActive then
-        local head = nil
-
-        if f2Enabled and rightClickPressed then
-            -- Use screen center-based aiming for F2 mode
-            head = getClosestEnemyToScreenCenter(500)
-        else
-            -- Use distance-based aiming for 1-second mode
-            head = getClosestEnemyHeadInRange(7)
-        end
-
-        if head then
-            Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
-        end
+    if aimbotActive and targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("Head") then
+        local head = targetPlayer.Character.Head
+        Camera.CFrame = CFrame.new(Camera.CFrame.Position, head.Position)
     end
 end)
 
--- New: Set target player when right-clicking
+-- Toggle Aimbot with T
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if not rightClickPressed then
-            -- Set target player only when right-click is pressed
-            if f2Enabled then
-                targetPlayer = getClosestPlayer(true, 0)
-                print("Target player set: " .. (targetPlayer and targetPlayer.Name or "None"))
-            end
-            rightClickPressed = true
-            aimbotActive = true
-        end
-    end
-end)
 
--- Right click up = deactivate aim, but keep the target fixed
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton2 then
-        if f2Enabled then
-            -- Keep the target player fixed even when the right-click is released
-            rightClickPressed = false
+    if input.KeyCode == Enum.KeyCode.T then
+        aimbotActive = not aimbotActive
+        if aimbotActive then
+            local head = getClosestEnemyToScreenCenter(500)
+            if head then
+                targetPlayer = Players:GetPlayerFromCharacter(head.Parent)
+            end
+            print("Aimbot: ON")
+            StarterGui:SetCore("SendNotification", {
+                Title = "Aimbot",
+                Text = "Aimbot aktiviert (T)",
+                Duration = 3
+            })
+        else
+            targetPlayer = nil
+            print("Aimbot: OFF")
+            StarterGui:SetCore("SendNotification", {
+                Title = "Aimbot",
+                Text = "Aimbot deaktiviert (T)",
+                Duration = 3
+            })
         end
     end
 end)
@@ -168,26 +159,9 @@ end)
 local function enableAimbotForOneSecond()
     aimbotActive = true
     task.delay(1, function()
-        if not f2Enabled then
-            aimbotActive = false
-        end
+        aimbotActive = false
     end)
 end
-
--- F2 toggles right-click aim mode
-UserInputService.InputBegan:Connect(function(input, processed)
-    if processed then return end
-
-    if input.KeyCode == Enum.KeyCode.F2 then
-        f2Enabled = not f2Enabled
-        print("F2 Aimbot is now", f2Enabled and "enabled" or "disabled")
-        StarterGui:SetCore("SendNotification", {
-            Title = "Aimbot (F2)";
-            Text = f2Enabled and "Enabled (Hold Right Click)" or "Disabled";
-            Duration = 4
-        })
-    end
-end)
 
 -- Activate mode (solo/team)
 local function activateMode(mode)
@@ -281,92 +255,3 @@ StarterGui:SetCore("SendNotification", {
 
 -- External script loader
 loadstring(game:HttpGet('https://raw.githubusercontent.com/Lucasfin000/SpaceHub/main/UESP'))()
-
-local UserInputService = game:GetService("UserInputService")
-
--- GUI Setup
-local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "ScriptHubUI"
-ScreenGui.Parent = game.CoreGui
-ScreenGui.ResetOnSpawn = false
-ScreenGui.IgnoreGuiInset = true  -- Wichtig für Mobile
-
-local ToggleButtonFrame = Instance.new("Frame")
-ToggleButtonFrame.Name = "ToggleButtonFrame"
-ToggleButtonFrame.Parent = ScreenGui
-ToggleButtonFrame.BackgroundTransparency = 1
-ToggleButtonFrame.Position = UDim2.new(0.5, -37, 0.5, -37)  -- Mitte des Bildschirms
-ToggleButtonFrame.Size = UDim2.new(0, 75, 0, 75)
-ToggleButtonFrame.BorderSizePixel = 2
-ToggleButtonFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
-
-local ToggleButton = Instance.new("TextButton")
-ToggleButton.Name = "ToggleButton"
-ToggleButton.Parent = ToggleButtonFrame
-ToggleButton.BackgroundTransparency = 1
-ToggleButton.Size = UDim2.new(1, 0, 1, 0)
-ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Text = "Drag on scope for Aim-bot"
-ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-ToggleButton.TextScaled = true
-
-local UICorner = Instance.new("UICorner")
-UICorner.Parent = ToggleButton
-
--- Global toggle variable
-_G.isTHeld = false
-
--- Drag & tap logic
-local dragging = false
-local dragStartPos
-local inputStartPos
-local mouseDownTime = 0
-
-local function beginDrag(input)
-	mouseDownTime = tick()
-	dragging = true
-	dragStartPos = ToggleButtonFrame.Position
-	inputStartPos = input.Position
-end
-
-local function updateDrag(input)
-	local delta = input.Position - inputStartPos
-	ToggleButtonFrame.Position = UDim2.new(
-		dragStartPos.X.Scale,
-		dragStartPos.X.Offset + delta.X,
-		dragStartPos.Y.Scale,
-		dragStartPos.Y.Offset + delta.Y
-	)
-end
-
-local function endDrag(input)
-	dragging = false
-	local heldDuration = tick() - mouseDownTime
-	if heldDuration < 0.1 then
-		_G.isTHeld = not _G.isTHeld
-	end
-end
-
-ToggleButton.InputBegan:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		beginDrag(input)
-	end
-end)
-
-ToggleButton.InputChanged:Connect(function(input)
-	if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
-		updateDrag(input)
-	end
-end)
-
-ToggleButton.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-		endDrag(input)
-	end
-end)
-
-RunService.RenderStepped:Connect(function()
-    if _G.isTHeld then
-        -- Simuliere "T" gedrückt oder führe deine T-Aktion aus
-    end
-end)
