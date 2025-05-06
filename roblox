@@ -1,0 +1,88 @@
+local UserInputService = game:GetService("UserInputService")
+
+-- GUI Setup
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ScriptHubUI"
+ScreenGui.Parent = game.CoreGui
+ScreenGui.ResetOnSpawn = false
+ScreenGui.IgnoreGuiInset = true  -- Wichtig für Mobile
+
+local ToggleButtonFrame = Instance.new("Frame")
+ToggleButtonFrame.Name = "ToggleButtonFrame"
+ToggleButtonFrame.Parent = ScreenGui
+ToggleButtonFrame.BackgroundTransparency = 1
+ToggleButtonFrame.Position = UDim2.new(0.5, -37, 0.5, -37)  -- Mitte des Bildschirms
+ToggleButtonFrame.Size = UDim2.new(0, 75, 0, 75)
+ToggleButtonFrame.BorderSizePixel = 2
+ToggleButtonFrame.BorderColor3 = Color3.fromRGB(255, 0, 0)
+
+local ToggleButton = Instance.new("TextButton")
+ToggleButton.Name = "ToggleButton"
+ToggleButton.Parent = ToggleButtonFrame
+ToggleButton.BackgroundTransparency = 1
+ToggleButton.Size = UDim2.new(1, 0, 1, 0)
+ToggleButton.Font = Enum.Font.SourceSansBold
+ToggleButton.Text = "Drag on scope for Aim-bot"
+ToggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleButton.TextScaled = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.Parent = ToggleButton
+
+-- Global toggle variable
+_G.isTHeld = false
+
+-- Drag & tap logic
+local dragging = false
+local dragStartPos
+local inputStartPos
+local mouseDownTime = 0
+
+local function beginDrag(input)
+	mouseDownTime = tick()
+	dragging = true
+	dragStartPos = ToggleButtonFrame.Position
+	inputStartPos = input.Position
+end
+
+local function updateDrag(input)
+	local delta = input.Position - inputStartPos
+	ToggleButtonFrame.Position = UDim2.new(
+		dragStartPos.X.Scale,
+		dragStartPos.X.Offset + delta.X,
+		dragStartPos.Y.Scale,
+		dragStartPos.Y.Offset + delta.Y
+	)
+end
+
+local function endDrag(input)
+	dragging = false
+	local heldDuration = tick() - mouseDownTime
+	if heldDuration < 0.1 then
+		_G.isTHeld = not _G.isTHeld
+	end
+end
+
+ToggleButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		beginDrag(input)
+	end
+end)
+
+ToggleButton.InputChanged:Connect(function(input)
+	if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+		updateDrag(input)
+	end
+end)
+
+ToggleButton.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+		endDrag(input)
+	end
+end)
+
+RunService.RenderStepped:Connect(function()
+    if _G.isTHeld then
+        -- Simuliere "T" gedrückt oder führe deine T-Aktion aus
+    end
+end)
