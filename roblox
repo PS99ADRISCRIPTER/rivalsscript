@@ -40,7 +40,7 @@ local function toggleAimbot()
         print("Aimbot: OFF")
         StarterGui:SetCore("SendNotification", {
             Title = "Aimbot",
-            Text = "Aimbot deaktiviert (T/Button)",
+            Text = "Aimbot deaktiviert",
             Duration = 3
         })
     end
@@ -189,7 +189,7 @@ ToggleButton.Parent = ToggleButtonFrame
 ToggleButton.BackgroundTransparency = 1
 ToggleButton.Size = UDim2.new(1, 0, 1, 0)
 ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Text = "Drag on\nscope for Aim-bot"
+ToggleButton.Text = "Click for Aim-Bot"
 ToggleButton.TextColor3 = Color3.new(1, 1, 1)
 ToggleButton.TextWrapped = true
 ToggleButton.TextScaled = true
@@ -243,8 +243,8 @@ end)
 activateMode(currentMode)
 
 StarterGui:SetCore("SendNotification", {
-    Title = "Keybinds",
-    Text = "Open console (F9) to view keybinds\n\nHello, " .. player.DisplayName,
+    Title = "Kiddo",
+    Text = "GIVE ME MONEY\n\nHello, " .. player.DisplayName,
     Icon = "rbxthumb://type=AvatarHeadShot&id=" .. player.UserId .. "&w=180&h=180",
     Duration = 10
 })
