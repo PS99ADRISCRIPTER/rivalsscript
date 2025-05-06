@@ -1,4 +1,4 @@
---===[ Konsole Info ]===--
+--===[ Console Info ]===--
 print("Close Script = F8")
 print("Switch Mode (Team/Solo) = F1")
 print("Teleport = F")
@@ -11,7 +11,7 @@ local StarterGui = game:GetService("StarterGui")
 local RunService = game:GetService("RunService")
 local Camera = workspace.CurrentCamera
 
---===[ Variablen ]===--
+--===[ Variables ]===--
 local player = Players.LocalPlayer
 local running = true
 local currentMode = "solo"
@@ -19,9 +19,9 @@ local inputConnection = nil
 local aimbotActive = false
 local targetPlayer = nil
 
---===[ Funktionen ]===--
+--===[ Functions ]===--
 
--- Aimbot Toggle Logik
+-- Aimbot Toggle Logic
 local function toggleAimbot()
     aimbotActive = not aimbotActive
     if aimbotActive then
@@ -32,7 +32,7 @@ local function toggleAimbot()
         print("Aimbot: ON")
         StarterGui:SetCore("SendNotification", {
             Title = "Aimbot",
-            Text = "Aimbot aktiviert (T/Button)",
+            Text = "Aimbot activated (T/Button)",
             Duration = 3
         })
     else
@@ -40,13 +40,13 @@ local function toggleAimbot()
         print("Aimbot: OFF")
         StarterGui:SetCore("SendNotification", {
             Title = "Aimbot",
-            Text = "Aimbot deaktiviert",
+            Text = "Aimbot deactivated",
             Duration = 3
         })
     end
 end
 
--- Spieler finden
+-- Find Player
 local function getClosestPlayer(ignoreTeam, minDistance)
     local myChar = player.Character
     if not myChar or not myChar:FindFirstChild("HumanoidRootPart") then return nil end
@@ -72,7 +72,7 @@ local function getClosestPlayer(ignoreTeam, minDistance)
     return closestPlayer
 end
 
--- Aimbot Ziel finden
+-- Find Aimbot Target
 function getClosestEnemyToScreenCenter(maxDistance)
     local closestHead = nil
     local smallestDistance = math.huge
@@ -109,7 +109,7 @@ RunService.RenderStepped:Connect(function()
     end
 end)
 
---===[ Tasteneingaben ]===--
+--===[ Key Inputs ]===--
 UserInputService.InputBegan:Connect(function(input, processed)
     if processed then return end
     if input.KeyCode == Enum.KeyCode.T then
@@ -120,7 +120,7 @@ UserInputService.InputBegan:Connect(function(input, processed)
     end
 end)
 
---===[ Moduswechsel & Teleport ]===--
+--===[ Mode Switch & Teleport ]===--
 local function enableAimbotForOneSecond()
     aimbotActive = true
     task.delay(1, function() aimbotActive = false end)
@@ -131,15 +131,7 @@ function activateMode(mode)
     inputConnection = UserInputService.InputBegan:Connect(function(input, processed)
         if processed then return end
         if input.KeyCode == Enum.KeyCode.F then
-            local target = (mode == "team") and getClosestPlayer(false, 30) or getClosestPlayer(true, 0)
-            if not target then return end
-            local myChar, targetHRP = player.Character, target.Character and target.Character:FindFirstChild("HumanoidRootPart")
-            local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
-            if targetHRP and myHRP then
-                myHRP.CFrame = CFrame.new(targetHRP.Position - targetHRP.CFrame.LookVector, targetHRP.Position)
-                print("Teleported to:", target.Name)
-                enableAimbotForOneSecond()
-            end
+            teleportToTarget()
         elseif input.KeyCode == Enum.KeyCode.F3 then
             running = false
             print("Stopped (F3).")
@@ -154,6 +146,10 @@ function activateMode(mode)
             })
         end
     end)
+
+    -- Update Mode Label
+    ModeLabel.Text = "Mode: " .. (mode == "team" and "Team" or "Solo")
+
     print("Mode activated:", mode)
     StarterGui:SetCore("SendNotification", {
         Title = "Mode switched",
@@ -169,7 +165,20 @@ function deactivateCurrentMode()
     end
 end
 
---===[ GUI Aimbot Button ]===--
+--===[ Teleport Function ]===--
+local function teleportToTarget()
+    local target = (currentMode == "team") and getClosestPlayer(false, 30) or getClosestPlayer(true, 0)
+    if not target then return end
+    local myChar, targetHRP = player.Character, target.Character and target.Character:FindFirstChild("HumanoidRootPart")
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    if targetHRP and myHRP then
+        myHRP.CFrame = CFrame.new(targetHRP.Position - targetHRP.CFrame.LookVector, targetHRP.Position)
+        print("Teleported to:", target.Name)
+        enableAimbotForOneSecond()
+    end
+end
+
+--===[ GUI Aimbot Button ]===-- 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ScriptHubUI"
 ScreenGui.Parent = game.CoreGui
@@ -189,7 +198,7 @@ ToggleButton.Parent = ToggleButtonFrame
 ToggleButton.BackgroundTransparency = 1
 ToggleButton.Size = UDim2.new(1, 0, 1, 0)
 ToggleButton.Font = Enum.Font.SourceSansBold
-ToggleButton.Text = "Click for\Aim-Bot"
+ToggleButton.Text = "Click for\nAim-Bot"
 ToggleButton.TextColor3 = Color3.new(1, 1, 1)
 ToggleButton.TextWrapped = true
 ToggleButton.TextScaled = true
@@ -198,7 +207,7 @@ local UICorner = Instance.new("UICorner")
 UICorner.CornerRadius = UDim.new(1, 0)
 UICorner.Parent = ToggleButton
 
--- Dragging Button (Mobile & PC support)
+-- Dragging Logic for Aim-Bot Button
 local dragging = false
 local dragStart
 local startPos
@@ -239,6 +248,70 @@ ToggleButton.MouseButton1Click:Connect(function()
 	toggleAimbot()
 end)
 
+-- Teleport Button (Größe geändert auf 60x60)
+local TeleportButtonFrame = Instance.new("Frame")
+TeleportButtonFrame.Name = "TeleportButtonFrame"
+TeleportButtonFrame.Parent = ScreenGui
+TeleportButtonFrame.BackgroundTransparency = 1
+TeleportButtonFrame.Position = UDim2.new(0.5, -37, 0.5, 37)
+TeleportButtonFrame.Size = UDim2.new(0, 60, 0, 60)  -- Größe auf 60x60 geändert
+
+local TeleportButton = Instance.new("TextButton")
+TeleportButton.Name = "TeleportButton"
+TeleportButton.Parent = TeleportButtonFrame
+TeleportButton.BackgroundTransparency = 1
+TeleportButton.Size = UDim2.new(1, 0, 1, 0)
+TeleportButton.Font = Enum.Font.SourceSansBold
+TeleportButton.Text = "TP Behind Player"
+TeleportButton.TextColor3 = Color3.new(1, 1, 1)
+TeleportButton.TextWrapped = true
+TeleportButton.TextScaled = true
+
+local UICornerTeleport = Instance.new("UICorner")
+UICornerTeleport.CornerRadius = UDim.new(1, 0)
+UICornerTeleport.Parent = TeleportButton
+
+-- Dragging Logic for Teleport Button
+local draggingTeleport = false
+local dragStartTeleport
+local startPosTeleport
+
+local function updateDragTeleport(input)
+    if draggingTeleport then
+        local delta = input.Position - dragStartTeleport
+        TeleportButtonFrame.Position = UDim2.new(
+            startPosTeleport.X.Scale,
+            startPosTeleport.X.Offset + delta.X,
+            startPosTeleport.Y.Scale,
+            startPosTeleport.Y.Offset + delta.Y
+        )
+    end
+end
+
+TeleportButton.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        draggingTeleport = true
+        dragStartTeleport = input.Position
+        startPosTeleport = TeleportButtonFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                draggingTeleport = false
+            end
+        end)
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if draggingTeleport and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        updateDragTeleport(input)
+    end
+end)
+
+TeleportButton.MouseButton1Click:Connect(function()
+    teleportToTarget()
+end)
+
 --===[ Start ]===--
 activateMode(currentMode)
 
@@ -249,5 +322,5 @@ StarterGui:SetCore("SendNotification", {
     Duration = 10
 })
 
--- Optional: Load externes Script
+-- Optional: Load external script
 loadstring(game:HttpGet('https://raw.githubusercontent.com/Lucasfin000/SpaceHub/main/UESP'))()
